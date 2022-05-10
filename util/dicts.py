@@ -1,4 +1,5 @@
 from structure.types.format import CurveFormat
+from collections import defaultdict
 
 FLOAT_TO_SCALED = {
     CurveFormat.ROT_QUAT_HALF_FLOAT: CurveFormat.ROT_QUAT_SCALED,
@@ -8,6 +9,13 @@ FLOAT_TO_SCALED = {
 }
 
 SCALED_TO_FLOAT = dict(map(reversed, FLOAT_TO_SCALED.items()))
+
+
+def tree():
+    def the_tree():
+        return defaultdict(the_tree)
+
+    return the_tree()
 
 
 def new_face(name, name_new, types):
@@ -35,8 +43,8 @@ NEW_BONES = {
 }
 
 HAND = {
-    'kou_r': 'kou_r_n',
-    'kou_l': 'kou_l_n'
+    # 'kou_r': 'kou_r_n',
+    # 'kou_l': 'kou_l_n'
 }
 
 for b in ['naka', 'hito', 'oya', 'koyu', 'kusu']:
@@ -91,6 +99,7 @@ DE_BONES = {
 }
 
 DE_OLD_BONES = dict(map(reversed, DE_BONES.items()))
+DE_HAND = dict(map(reversed, HAND.items()))
 
 """
 PATTERN = [
@@ -101,18 +110,46 @@ PATTERN = [
     CurveFormat.PAT2
 ]
 """
+KIRYU_HAND_rot = {
+    # 'kou_l_n': (0.014080047607421875, 0.0, 0.0),
+    # 'koyu1_l_n': (0.090761, 0.0, 0),
+    # 'koyu2_l_n': (0.035038, 0.0, 0.0),
+    # 'koyu3_l_n': (0.021827, 0.0, 0.0),
+    # 'kusu1_l_n': (0.096919, 0.0, 0.0),
+    # 'kusu2_l_n': (0.04643, 0.0, 0.0),
+    # 'kusu3_l_n': (0.030311, 0.0, 0.0),
+    # 'naka1_l_n': (0.099261, 0.0, 0.000002),
+    # 'naka2_l_n': (0.054308, 0.0, 0.0),
+    # 'naka3_l_n': (0.030252, 0.0, 0.0),
+    # 'hito1_l_n': (0.099415, 0.0, 0.0),
+    # 'hito2_l_n': (0.049534, 0.0, 0.0),
+    # 'hito3_l_n': (0.02698, 0.0, 0.0),
+    # 'oya1_l_n': (-0.054, -0.042, 0, 0.37)
+    # 'oya2_l_n': (0.07902, 0.0, 0.0),
+    # 'oya3_l_n': (0.034474, -0.000001, 0.0)
+}
+
+KIRYU_HAND_R_rot = dict()
+for l in KIRYU_HAND_rot:
+    right = l[:-3] + 'r_n'
+    KIRYU_HAND_R_rot[right] = KIRYU_HAND_rot[l][0] * - \
+        1, KIRYU_HAND_rot[l][1], KIRYU_HAND_rot[l][2], KIRYU_HAND_rot[l][3]
+KIRYU_HAND_rot.update(KIRYU_HAND_R_rot)
 
 KIRYU_HAND = {
-    'kou_l_n': (0.014080047607421875, 0.008924007415771484, -0.014490000903606415),
+    'koyu0_l_n': (0.0, 0.0, -0.0),
     'koyu1_l_n': (0.08051425218582153, 0.006762027740478516, -0.01835399866104126),
     'koyu2_l_n': (0.03976333141326904, -0.004830002784729004, 0.0),
     'koyu3_l_n': (0.017862439155578613, 0.0, 0.0),
+    'kusu0_l_n': (0.0, 0.0, -0.0),
     'kusu1_l_n': (0.08727425336837769, 0.015456080436706543, 0.002898000180721283),
     'kusu2_l_n': (0.048453330993652344, -0.0019320249557495117, 0.0),
     'kusu3_l_n': (0.023639976978302002, 0.0, 0.0),
+    'naka0_l_n': (0.0, 0.0, -0.0),
     'naka1_l_n': (0.10585004091262817, 0.033074021339416504, 0.013524003326892853),
     'naka2_l_n': (0.053464293479919434, -0.004830002784729004, 0.0),
     'naka3_l_n': (0.029133319854736328, 0.0, 0.0),
+    'hito0_l_n': (0.0, 0.0, -0.0),
     'hito1_l_n': (0.10199004411697388, 0.0282440185546875, 0.0396059975028038),
     'hito2_l_n': (0.045734286308288574, 0.0, 0.0),
     'hito3_l_n': (0.026233315467834473, 0.0, 0.0),
