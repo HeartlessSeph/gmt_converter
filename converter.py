@@ -4,7 +4,6 @@ from os.path import basename
 from typing import List
 
 from pyquaternion import Quaternion
-
 from read import read_file
 from structure.animation import Animation
 from structure.bone import Bone, find_bone
@@ -24,7 +23,7 @@ from write import write_file
 
 
 class Translation:
-    def __init__(self, rp: bool, fc: bool, hn: bool, bd: bool, sgmd: str, tgmd: str, rst: bool, rhct: bool, aoff: str, sp: str):
+    def __init__(self, rp: bool, fc: bool, hn: bool, bd: bool, sgmd: str, tgmd: str, rst: bool, rhct: bool, aoff: str, sp: str, sync_x, sync_y, sync_z):
         self.reparent = rp
         self.face = fc
         self.hand = hn
@@ -38,6 +37,9 @@ class Translation:
         self.add_offset = float(aoff) if aoff else 0.0
 
         self.speed = sp if sp else "1"
+        self.sync_x = sync_x
+        self.sync_y = sync_y
+        self.sync_z = sync_z
 
     def has_anything(self):
         return self.has_operation() or self.has_reset() or self.has_speed()
@@ -50,6 +52,7 @@ class Translation:
 
     def has_speed(self):
         return self.speed != "1"
+
 
 # returns converted file as bytearray
 
@@ -148,13 +151,14 @@ def convert(path, src_game, dst_game, motion, translation) -> bytearray:
             # convert post-Y5 bones to DE bones (copy center movement to vector)
             for anm in in_file.animations:
                 anm.bones = old_to_new_bones(
-                    anm.bones, src_gmt.new_bones, dst_gmt.is_dragon_engine, motion, translation.targetgmd)
+                    anm.bones, src_gmt.new_bones, dst_gmt.is_dragon_engine, motion, translation.targetgmd,
+                    translation.sync_x, translation.sync_y, translation.sync_z)
 
     elif dst_gmt.new_bones:
         # convert old bones to new bones (add _c_n and copy center movement to vector (and sync) accordingly)
         for anm in in_file.animations:
             anm.bones = old_to_new_bones(
-                anm.bones, src_gmt.new_bones, dst_gmt.is_dragon_engine, motion, translation.targetgmd)
+                anm.bones, src_gmt.new_bones, dst_gmt.is_dragon_engine, motion, translation.targetgmd, 0.0, 0.0, 0.0)
 
     if dst_gmt.new_bones and not dst_gmt.is_dragon_engine:
         # if not translation.targetgmd:
@@ -193,6 +197,7 @@ def convert(path, src_game, dst_game, motion, translation) -> bytearray:
     return write_file(in_file, dst_gmt.version)
 
 
+# TODO: Code needs updating and cleanup
 def old_to_de_kosi(bones: List[Bone]) -> List[Bone]:
     # convert rotations to make kosi child to ketu
     # convert positions: set kosi position to 0
@@ -201,7 +206,7 @@ def old_to_de_kosi(bones: List[Bone]) -> List[Bone]:
     if not (len(ketu) and len(kosi)):
         return bones
     ketu = ketu[0]
-    #ketu_index = bones.index(ketu)
+    # ketu_index = bones.index(ketu)
     kosi = kosi[0]
     kosi_index = bones.index(kosi)
 
@@ -247,7 +252,7 @@ def de_to_old_kosi(bones: List[Bone]) -> List[Bone]:
     if not (len(ketu) and len(kosi)):
         return bones
     ketu = ketu[0]
-    #ketu_index = bones.index(ketu)
+    # ketu_index = bones.index(ketu)
     kosi = kosi[0]
     kosi_index = bones.index(kosi)
 
@@ -276,7 +281,7 @@ def de_to_old_kosi(bones: List[Bone]) -> List[Bone]:
     for ke, ko in zip(ketu.rotation_curves(), kosi.rotation_curves()):
         i = 0
         ko.neutralize()
-        ko.curve_format = SCALED_TO_FLOAT.get(ko.curve_format, ko.curve_format)
+        # ko.curve_format = SCALED_TO_FLOAT.get(ko.curve_format, ko.curve_format)
         for f in ko.graph.keyframes:
             kf = f
             if kf not in ke.graph.keyframes:
@@ -291,13 +296,15 @@ def de_to_old_kosi(bones: List[Bone]) -> List[Bone]:
         rotations.append(ko)
     kosi_curves.extend(rotations)
     bones[kosi_index].curves = kosi_curves
+    # for curve in bones[kosi_index].curves:
+    #     if "ROT" in curve.curve_format.name: print(curve.values)
 
     return bones
 
 
-def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path) -> List[Bone]:
-
+def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path, syn_x, syn_y, syn_z) -> List[Bone]:
     c_index = 0
+    s_index = 0
     center_bone = find_bone('center', bones)
     if center_bone[0]:
         center, c_index = center_bone
@@ -339,6 +346,29 @@ def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path) -> Li
 
                 center.curves = [new_pos_curve()]
 
+            for bone in bones:
+                for curve_idx, curve in reversed(list(enumerate(bone.curves))):
+                    curve.neutralize()
+                    if len(curve.values) > 0:
+                        if 'POS' in curve.curve_format.name:
+                            if bone.name.string() in KIRYU_HAND: bone.curves.pop(curve_idx)
+
+            sync = Bone()
+            sync.name = Name("sync_c_n")
+            s_index = -1
+            sync_curves = deepcopy(vector.position_curves())
+            syn_x = 0.0 if not syn_x else float(syn_x)
+            syn_y = 0.0 if not syn_y else float(syn_y)
+            syn_z = 0.0 if not syn_z else float(syn_z)
+            for curve in sync_curves:
+                curve.neutralize()
+                first_y = curve.values[0][1]
+                for value in curve.values:
+                    value[0] += syn_x
+                    value[1] =  value[1] - first_y + syn_y
+                    value[2] += syn_z
+            sync.curves = sync_curves
+
         else:
             # Use both center and vector
             vector.curves = [c.to_horizontal()
@@ -353,7 +383,11 @@ def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path) -> Li
             bones[v_index] = deepcopy(vector)
         else:
             bones.insert(c_index + 1, deepcopy(vector))
+
         bones[c_index] = deepcopy(center)
+
+        if s_index == -1:
+            bones.append(sync)
 
     return bones
 
@@ -367,7 +401,7 @@ def finger_pos(bones: List[Bone], gmd_path=None) -> List[Bone]:
         if not len(finger.position_curves()):
             if gmd_path:
                 gmd_finger = [b for b in gmd if finger.name.string()[
-                    :-3] + 'r_n' in b.name]
+                                                :-3] + 'r_n' in b.name]
                 if not len(gmd_finger):
                     continue
                 gmd_finger = gmd_finger[0]
@@ -382,23 +416,28 @@ def finger_pos(bones: List[Bone], gmd_path=None) -> List[Bone]:
     return bones
 
 
-# FIXME: This has not been updated. Fixes needed.
+# Should be working properly now. Needs more testing to be 100% certain
 def new_to_old_bones(bones: List[Bone], src_de, dst_new, motion, gmd_path) -> List[Bone]:
-
     center_bone = find_bone('center', bones)
     if center_bone[0]:
         center, index = center_bone
 
         vector, _ = find_bone('vector', bones)
         if not vector:
-            # TODO: Add an actual error here
+            print("NO VECTOR BONE LOCATED IN ANIMATION, MOVEMENT WILL NOT WORK PROPERLY")
             return bones
 
         if src_de:
-            center = vector
-            center.name.update('center_c_n')
+            if not dst_new:
+                center = vector
+                if dst_new:
+                    center.name.update('center_c_n')
+                else:
+                    center.name.update('center_n')
+
         else:
             pos = [c.to_vertical() for c in center.position_curves()]
+            vector.blend_pos_curves()
             v_pos = vector.position_curves()
             center.curves = [add_curve(c, v) for c, v in zip(pos, v_pos)]
             center.curves.extend(vector.rotation_curves())
@@ -410,7 +449,7 @@ def new_to_old_bones(bones: List[Bone], src_de, dst_new, motion, gmd_path) -> Li
     sync, _ = find_bone('sync_c_n', bones)
     if sync:
         bones.remove(sync)
-        
+
     scale, _ = find_bone('scale', bones)
     if scale:
         bones.remove(scale)
@@ -490,7 +529,7 @@ def translate_face_bones(anm_bones: List[Bone], source, target):
                 map(lambda x, y: -x + y, t.global_pos, b_t.global_pos))
 
             pos_curve.values = list(map(lambda f: [
-                                    f[0] + s_pos[0] + t_pos[0], f[1] + s_pos[1] + t_pos[1], f[2] + s_pos[2] + t_pos[2]], pos_curve.values))
+                f[0] + s_pos[0] + t_pos[0], f[1] + s_pos[1] + t_pos[1], f[2] + s_pos[2] + t_pos[2]], pos_curve.values))
 
             gmt_bone.curves[0] = deepcopy(pos_curve)
             anm_bones[gmt_index] = deepcopy(gmt_bone)
@@ -545,7 +584,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
                 print(f"anm_bone.curves[0].values[0]: {anm_bone.curves[0].values[0]}")
                 print(f"bone_s.global_pos: {bone_s.global_pos}")
                 print(f"bone_t.global_pos: {bone_t.global_pos}\n")
-                
+
                 print(f"parent_s.name: {parent_s.name}")
                 print(f"parent_s.global_pos: {parent_s.global_pos}")
                 print(f"parent_t.name: {parent_t.name}")
@@ -570,7 +609,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
                 pos_curve.values = list(map(lambda f:
                                             [f[0] + s_pos[0] + s_pos_new[0],
                                              f[1] + s_pos[1] + s_pos_new[1],
-                                                f[2] + s_pos[2] + s_pos_new[2]], pos_curve.values))
+                                             f[2] + s_pos[2] + s_pos_new[2]], pos_curve.values))
                 anm_bones[gmt_index].curves[0] = deepcopy(pos_curve)
 
             """
@@ -578,7 +617,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
             rot_curve = anm_bone.rotation_curves()
             if len(rot_curve):
                 rot_curve = rot_curve[0]
-                
+
                 for p in bone_s.parent_recursive:
                     anm_p = [b for b in anm_bones if b.name == p.name]
             """
@@ -641,7 +680,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
             print(f"gmt_bone.curves[0].values[0]: {gmt_bone.curves[0].values[0]}")
             print(f"b_s.global_pos: {b_s.global_pos}")
             print(f"b_t.global_pos: {b_t.global_pos}\n")
-            
+
             print(f"p_s.name: {p_s.name}")
             print(f"p_s.global_pos: {p_s.global_pos}")
             print(f"p_t.name: {p_t.name}")
@@ -670,15 +709,15 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
                 side_t, _ = find_gmd_bone(side_name, target_gmd)
                 if not side_t:
                     continue
-                #side_t = [bone for bone in target_gmd if bone.name == side_name][0]
+                # side_t = [bone for bone in target_gmd if bone.name == side_name][0]
 
                 btm_name = '_lip_btm_side1_r_n' if 'r' in side_name else '_lip_btm_side1_l_n'
                 btm_gmt, _ = find_bone(btm_name, anm_bones)
                 if not btm_gmt:
                     continue
-                #[bone for bone in anm_bones if bone.name.string() == btm_name][0]
+                # [bone for bone in anm_bones if bone.name.string() == btm_name][0]
                 btm_t, _ = find_gmd_bone(btm_name, target_gmd)
-                #[bone for bone in target_gmd if bone.name == btm_name][0]
+                # [bone for bone in target_gmd if bone.name == btm_name][0]
 
                 btm_pos = btm_gmt.position_curves()
                 if not len(btm_pos):
@@ -691,7 +730,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
                                            [f[0] - btm_t.global_pos[0] + side_t.global_pos[0],
                                             f[1] - btm_t.global_pos[1] +
                                             side_t.global_pos[1],
-                                               f[2] - btm_t.global_pos[2] + side_t.global_pos[2]], btm_pos.values))
+                                            f[2] - btm_t.global_pos[2] + side_t.global_pos[2]], btm_pos.values))
 
                 side_gmt.curves.append(side_pos)
                 anm_bones.append(side_gmt)
@@ -716,7 +755,7 @@ def transform_bones(anm_bones: List[Bone], src_props, dst_props, translation):
 
 
 def combine(paths, ext):
-    #paths = list(map(lambda x: f"\"{x}\"", paths))
+    # paths = list(map(lambda x: f"\"{x}\"", paths))
 
     # TODO: make an indices list
     files = []

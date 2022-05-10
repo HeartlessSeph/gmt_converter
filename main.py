@@ -9,7 +9,6 @@ from converter import convert, combine, reset_camera, vector_org, Translation
 description = """
 GMT Converter v0.5.4
 By SutandoTsukai181
-
 A tool to convert animations between Yakuza games
 Currently supported Games:
   - Yakuza 0:             y0
@@ -26,23 +25,18 @@ Currently supported Games:
   - Yakuza Dead Souls:    yds
   - FOTNS Lost Paradise:  fotns
   - Judgment:             je
-
 Note1: Conversion might not properly work for some specific combinations
 Note2: All Dragon Engine games are the same, so y6 = yk2 = je = y7 = ylad
-
 """
 
 epilog = """
 EXAMPLE
 Convert animations from Yakuza 5 to Yakuza 0
 (source file is from Y5, target file will be used in Y0):
-
     gmt_converter.exe -ig y5 -og y0 -i animation_from_y5.gmt -o converted_y0_animation.gmt
-    
+
 If you want to convert an entire folder of GMTs, add the -d flag (or -dr to convert files in subfolders too):
-
     gmt_converter.exe -ig y0 -og y5 -d -i folder_containing_gmts
-
 """
 
 parser = argparse.ArgumentParser(
@@ -89,10 +83,20 @@ parser.add_argument('-cmb', '--combine', action='store_true',
 parser.add_argument('-sp', '--speed', action='store',
                     help='factor of the animations speed [2 will double the speed, 1/2 will change it to half the speed]')
 
+parser.add_argument('-sn_x', '--sync_x', action='store',
+                    help='Sync bone X position (DE)')
+
+parser.add_argument('-sn_y', '--sync_y', action='store',
+                    help='Sync bone Y position (DE)')
+
+parser.add_argument('-sn_z', '--sync_z', action='store',
+                    help='Sync bone Z position (DE)')
+
 
 def process_args(args):
     translation = Translation(args.reparent, args.face, args.hand, args.body,
-                              args.sourcegmd, args.targetgmd, args.reset, args.resethact, args.addoffset, args.speed)
+                              args.sourcegmd, args.targetgmd, args.reset, args.resethact, args.addoffset, args.speed,
+                              args.sync_x, args.sync_y, args.sync_z)
 
     if not args.inpath:
         if os.path.isdir("input_folder"):
