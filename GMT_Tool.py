@@ -152,8 +152,9 @@ def add_bone(bones):
 
 def remove_bone(bones):
     act_bone = select_bone(bones)
+    bone_name = bones[act_bone].name.string()
     bones.pop(act_bone)
-    print(bones[act_bone] + " removed from bones list.")
+    print(bone_name + " removed from bones list.")
     return bones
 
 

@@ -353,21 +353,22 @@ def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path, syn_x
                         if 'POS' in curve.curve_format.name:
                             if bone.name.string() in KIRYU_HAND: bone.curves.pop(curve_idx)
 
-            sync = Bone()
-            sync.name = Name("sync_c_n")
-            s_index = -1
-            sync_curves = deepcopy(vector.position_curves())
-            syn_x = 0.0 if not syn_x else float(syn_x)
-            syn_y = 0.0 if not syn_y else float(syn_y)
-            syn_z = 0.0 if not syn_z else float(syn_z)
-            for curve in sync_curves:
-                curve.neutralize()
-                first_y = curve.values[0][1]
-                for value in curve.values:
-                    value[0] += syn_x
-                    value[1] =  value[1] - first_y + syn_y
-                    value[2] += syn_z
-            sync.curves = sync_curves
+            if motion:
+                sync = Bone()
+                sync.name = Name("sync_c_n")
+                s_index = -1
+                sync_curves = deepcopy(vector.position_curves())
+                syn_x = 0.0 if not syn_x else float(syn_x)
+                syn_y = 0.0 if not syn_y else float(syn_y)
+                syn_z = 0.0 if not syn_z else float(syn_z)
+                for curve in sync_curves:
+                    curve.neutralize()
+                    first_y = curve.values[0][1]
+                    for value in curve.values:
+                        value[0] += syn_x
+                        value[1] =  value[1] - first_y + syn_y
+                        value[2] += syn_z
+                sync.curves = sync_curves
 
         else:
             # Use both center and vector
