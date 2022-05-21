@@ -20,6 +20,12 @@ class Bone:
     def rotation_curves(self):
         return [c for c in self.curves if 'ROT' in c.curve_format.name]
 
+    def blend_pos_curves(self):
+        for curve in self.curves: curve.blend_pos_keyframes()
+
+    def blend_rot_curves(self):
+        for curve in self.curves: curve.blend_rot_keyframes()
+
 
 def find_bone(name: str, bones: List[Bone]):
     results = [b for b in bones if name in b.name.string()]
@@ -28,3 +34,6 @@ def find_bone(name: str, bones: List[Bone]):
     bone = results[0]
     index = bones.index(bone)
     return (bone, index)
+
+
+
