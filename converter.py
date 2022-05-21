@@ -348,7 +348,6 @@ def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path, syn_x
 
             for bone in bones:
                 for curve_idx, curve in reversed(list(enumerate(bone.curves))):
-                    curve.neutralize()
                     if len(curve.values) > 0:
                         if 'POS' in curve.curve_format.name:
                             if bone.name.string() in KIRYU_HAND: bone.curves.pop(curve_idx)
@@ -384,7 +383,6 @@ def old_to_new_bones(bones: List[Bone], src_new, dst_de, motion, gmd_path, syn_x
             bones[v_index] = deepcopy(vector)
         else:
             bones.insert(c_index + 1, deepcopy(vector))
-
         bones[c_index] = deepcopy(center)
 
         if s_index == -1:
